@@ -8,25 +8,25 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Install SSH client
-      run: sudo apt-get install -y openssh-client
+      - name: Install SSH client
+        run: sudo apt-get install -y openssh-client
 
-    - name: Set up SSH
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: SSH to EC2 instances
-      run: |-
-        echo "$SSH_PRIVATE_KEY" > /tmp/private_key
-        chmod 600 /tmp/private_key
-        ssh -o StrictHostKeyChecking=no -i /tmp/private_key ubuntu@ec2-13-39-108-235.eu-west-3.compute.amazonaws.com
-        cd chat-api/
-        sudo make stop
-        sudo git pull
-        sudo make build
-        sudo make run
+      - name: SSH to EC2 instance and deploy
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ${{ secrets.SSH_PRIVATE_KEY }} ubuntu@ec2-13-39-108-235.eu-west-3.compute.amazonaws.com << 'EOF'
+            cd /path/to/your/application
+            sudo make stop
+            sudo git pull
+            sudo make build
+            sudo make run
+          EOF
