@@ -23,10 +23,11 @@ jobs:
 
       - name: SSH to EC2 instance and deploy
         run: |
-          ssh -o StrictHostKeyChecking=no -i ${{ secrets.SSH_PRIVATE_KEY }} ubuntu@ec2-13-39-108-235.eu-west-3.compute.amazonaws.com << 'EOF'
-            cd /path/to/your/application
-            sudo make stop
-            sudo git pull
-            sudo make build
-            sudo make run
-          EOF
+          echo "$SSH_PRIVATE_KEY" > /tmp/private_key
+          chmod 600 /tmp/private_key
+          ssh -o StrictHostKeyChecking=no -i /tmp/private_key ubuntu@ec2-13-39-108-235.eu-west-3.compute.amazonaws.com
+          cd /path/to/your/application
+          sudo make stop
+          sudo git pull
+          sudo make build
+          sudo make run
