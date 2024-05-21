@@ -1,0 +1,10 @@
+.database
+.github
+main.env
+.env
+app.log
+test.jpg
+downloaded_photo.jpg
+nexus-chat-app-key.pem
+.vscode
+.idea

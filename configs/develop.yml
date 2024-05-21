@@ -1,0 +1,6 @@
+jwt:
+  access_ttl: 200h
+  refresh_ttl: 1000h
+
+verify:
+  ttl: 50m
