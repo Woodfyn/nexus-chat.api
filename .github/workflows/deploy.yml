@@ -16,10 +16,10 @@ jobs:
             - name: Install SSH client
               run: sudo apt-get install -y openssh-client
       
-            - name: Set up SSH
-              uses: webfactory/ssh-agent@v0.5.3
-              with:
-                ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            # - name: Set up SSH
+            #   uses: webfactory/ssh-agent@v0.5.3
+            #   with:
+            #     ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             
             - name: SSH to EC2 instance and deploy
               run: |
