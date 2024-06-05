@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"mime/multipart"
 
@@ -12,8 +13,8 @@ import (
 
 type ProfileRepositoryPSQL interface {
 	GetProfile(ctx context.Context, userId int) (*core.User, error)
-	UpdateProfile(ctx context.Context, user *core.User) (*core.User, error)
-	UploadAvatar(ctx context.Context, avatar *core.UserAvatar) (*core.UserAvatar, error)
+	UpdateProfile(ctx context.Context, user *core.User) error
+	SaveAvatar(ctx context.Context, avatar *core.UserAvatar) error
 	GetAvatars(ctx context.Context, userId int) ([]*core.UserAvatar, error)
 	GetAvatar(ctx context.Context, avatarId int) (*core.UserAvatar, error)
 	DeleteAvatar(ctx context.Context, id int) error
@@ -45,7 +46,7 @@ func NewProfile(psqlRepo ProfileRepositoryPSQL, s3Repo ProfileRepositoryS3, avat
 	}
 }
 
-func (p *Profile) GetProfile(ctx context.Context, userId int) (*core.GetProfileResponse, error) {
+func (p *Profile) GetProfile(ctx context.Context, userId int) (*core.GetProfileResp, error) {
 	user, err := p.psqlRepo.GetProfile(ctx, userId)
 	if err != nil {
 		return nil, err
@@ -53,17 +54,25 @@ func (p *Profile) GetProfile(ctx context.Context, userId int) (*core.GetProfileR
 
 	userAvatars, err := p.psqlRepo.GetAvatars(ctx, user.ID)
 	if err != nil {
+		if errors.Is(err, core.ErrAvatarNotFound) {
+			return &core.GetProfileResp{
+				ID:       user.ID,
+				Username: user.Username,
+				Phone:    user.Phone,
+			}, nil
+		}
+
 		return nil, err
 	}
 
-	key := fmt.Sprintf("%s_%d_%d.jpg", p.avatarKeySalt, user.ID, getLastAvatarId(userAvatars))
+	key := fmt.Sprintf("%s_%d_%d.jpg", p.avatarKeySalt, user.ID, userAvatars[len(userAvatars)-1].ID)
 
 	resp, err := p.s3Repo.GetAvatars(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 
-	return &core.GetProfileResponse{
+	return &core.GetProfileResp{
 		ID:        user.ID,
 		Username:  user.Username,
 		Phone:     user.Phone,
@@ -71,34 +80,24 @@ func (p *Profile) GetProfile(ctx context.Context, userId int) (*core.GetProfileR
 	}, nil
 }
 
-func getLastAvatarId(avatars []*core.UserAvatar) int {
-	if len(avatars) == 0 {
-		return 0
+func (p *Profile) UpdateProfile(ctx context.Context, user *core.User) error {
+	if err := p.psqlRepo.UpdateProfile(ctx, user); err != nil {
+		return core.ErrThisCredIsAlready
 	}
 
-	return avatars[len(avatars)-1].ID
+	return nil
 }
 
-func (p *Profile) UpdateProfile(ctx context.Context, user *core.User) (*core.User, error) {
-	user, err := p.psqlRepo.UpdateProfile(ctx, user)
-	if err != nil {
-		return nil, core.ErrThisCredIsAlready
-	}
-
-	return user, nil
-}
-
-func (p *Profile) UploadAvatar(ctx context.Context, file multipart.File, id int) error {
+func (p *Profile) UploadAvatar(ctx context.Context, file multipart.File, userId int) error {
 	avatar := &core.UserAvatar{
-		UserId: id,
+		UserID: userId,
 	}
 
-	avatarWithId, err := p.psqlRepo.UploadAvatar(ctx, avatar)
-	if err != nil {
+	if err := p.psqlRepo.SaveAvatar(ctx, avatar); err != nil {
 		return err
 	}
 
-	key := fmt.Sprintf("%s_%d_%d.jpg", p.avatarKeySalt, id, avatarWithId.ID)
+	key := fmt.Sprintf("%s_%d_%d.jpg", p.avatarKeySalt, userId, avatar.ID)
 
 	if err := p.s3Repo.UploadAvatar(ctx, file, key); err != nil {
 		return err
@@ -107,15 +106,18 @@ func (p *Profile) UploadAvatar(ctx context.Context, file multipart.File, id int)
 	return nil
 }
 
-func (p *Profile) GetAvatars(ctx context.Context, userId int) ([]*core.GetAllUSerAvatarsResponse, error) {
-	userAvatars, err := p.psqlRepo.GetAvatars(ctx, userId)
+func (p *Profile) GetAvatars(ctx context.Context, userId int) ([]*core.GetAllUserAvatarsResp, error) {
+	avatars, err := p.psqlRepo.GetAvatars(ctx, userId)
 	if err != nil {
+		if errors.Is(err, core.ErrAvatarNotFound) {
+			return nil, nil
+		}
+
 		return nil, err
 	}
 
-	var response []*core.GetAllUSerAvatarsResponse
-
-	for _, avatar := range userAvatars {
+	var response []*core.GetAllUserAvatarsResp
+	for _, avatar := range avatars {
 		key := fmt.Sprintf("%s_%d_%d.jpg", p.avatarKeySalt, userId, avatar.ID)
 
 		output, err := p.s3Repo.GetAvatars(ctx, key)
@@ -123,9 +125,8 @@ func (p *Profile) GetAvatars(ctx context.Context, userId int) ([]*core.GetAllUSe
 			return nil, err
 		}
 
-		response = append(response, &core.GetAllUSerAvatarsResponse{
+		response = append(response, &core.GetAllUserAvatarsResp{
 			ID:        avatar.ID,
-			UserId:    avatar.UserId,
 			AvatarUrl: output.URL,
 		})
 	}

@@ -13,12 +13,12 @@ import (
 )
 
 type AuthRepositoryPSQL interface {
-	CreateUser(ctx context.Context, user *core.User) (*core.User, error)
+	CreateUser(ctx context.Context, user *core.User) error
 	GetUserByCredentials(ctx context.Context, phone string) (*core.User, error)
 	SetTokenSession(ctx context.Context, input *core.Token) error
 	GetTokenSession(ctx context.Context, refreshToken string) (*core.Token, error)
 	DeleteTokenSession(ctx context.Context, refreshToken string) error
-	CreateAvatar(ctx context.Context, avatar *core.UserAvatar) (*core.UserAvatar, error)
+	CreateAvatar(ctx context.Context, avatar *core.UserAvatar) error
 }
 
 type VerifyRepositoryREDIS interface {
@@ -35,14 +35,14 @@ type Auth struct {
 	redisRepo  VerifyRepositoryREDIS
 	twilioRepo VerifyRepositoryTWILIO
 
-	manager         *token.Manager
+	manager         token.TokenManager
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
 
 	log *logrus.Logger
 }
 
-func NewAuth(psqlRepo AuthRepositoryPSQL, redisRepo VerifyRepositoryREDIS, twilioRepo VerifyRepositoryTWILIO, manager *token.Manager, accessTokenTTL time.Duration, refreshTokenTTL time.Duration, log *logrus.Logger) *Auth {
+func NewAuth(psqlRepo AuthRepositoryPSQL, redisRepo VerifyRepositoryREDIS, twilioRepo VerifyRepositoryTWILIO, manager token.TokenManager, accessTokenTTL time.Duration, refreshTokenTTL time.Duration, log *logrus.Logger) *Auth {
 	return &Auth{
 		psqlRepo:   psqlRepo,
 		redisRepo:  redisRepo,
@@ -57,7 +57,7 @@ func NewAuth(psqlRepo AuthRepositoryPSQL, redisRepo VerifyRepositoryREDIS, twili
 }
 
 func (a *Auth) Register(ctx context.Context, user *core.AuthRegister) error {
-	_, err := a.psqlRepo.CreateUser(ctx, &core.User{
+	err := a.psqlRepo.CreateUser(ctx, &core.User{
 		Phone:    user.Phone,
 		Username: user.Username,
 	})
@@ -103,12 +103,11 @@ func (a *Auth) Verify(ctx context.Context, code string) ([]string, error) {
 		return nil, err
 	}
 
-	err = a.psqlRepo.SetTokenSession(ctx, &core.Token{
+	if err = a.psqlRepo.SetTokenSession(ctx, &core.Token{
 		UserID:       userIdInt,
 		RefreshToken: tokens[0],
 		CreatedAt:    time.Now().Format(time.DateTime),
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -143,12 +142,11 @@ func (a *Auth) Refresh(ctx context.Context, refreshToken string) ([]string, erro
 		return nil, err
 	}
 
-	err = a.psqlRepo.SetTokenSession(ctx, &core.Token{
+	if err = a.psqlRepo.SetTokenSession(ctx, &core.Token{
 		UserID:       tokenSession.UserID,
 		RefreshToken: tokens[0],
 		CreatedAt:    time.Now().Format(time.DateTime),
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -173,9 +171,7 @@ func (a *Auth) genereteTokens(userId string) ([]string, error) {
 }
 
 func (a *Auth) ParseToken(token string) (string, error) {
-	id, err := a.manager.Parse(token)
-
-	return id, err
+	return a.manager.Parse(token)
 }
 
 func (a *Auth) IsTokenExpired(token string) bool {

@@ -20,32 +20,32 @@ type Auth interface {
 }
 
 type Profile interface {
-	GetProfile(ctx context.Context, userId int) (*core.GetProfileResponse, error)
-	UpdateProfile(ctx context.Context, user *core.User) (*core.User, error)
-	GetAvatars(ctx context.Context, userId int) ([]*core.GetAllUSerAvatarsResponse, error)
-	UploadAvatar(ctx context.Context, file multipart.File, id int) error
+	GetProfile(ctx context.Context, userId int) (*core.GetProfileResp, error)
+	UpdateProfile(ctx context.Context, user *core.User) error
+	GetAvatars(ctx context.Context, userId int) ([]*core.GetAllUserAvatarsResp, error)
+	UploadAvatar(ctx context.Context, file multipart.File, userId int) error
 	DeleteAvatar(ctx context.Context, userId int, avatarId int) error
 }
 
 type WebSocket interface {
-	SendMessage(ctx context.Context, r *core.SendMessageReq, userId int) (*core.RoomMessage, error)
-	GetMessages(ctx context.Context, req *core.RoomUser) ([]*core.RoomMessage, error)
-	GetWall(ctx context.Context, userId int) ([]*core.WallRoomResponse, error)
-	CreateRoomGroup(ctx context.Context, r *core.CreateRoomGroupReq, adminID int) error
-	CreateRoomUser(ctx context.Context, r *core.CreateRoomUserReq, userID int) error
-	JoinRoom(ctx context.Context, r *core.RoomUser) (*core.RoomMessage, error)
-	LeaveRoom(ctx context.Context, r *core.RoomUser) (*core.RoomMessage, error)
-	DeleteRoom(ctx context.Context, r *core.RoomUser) error
-	TransferRoomGroupAdmin(ctx context.Context, r *core.TransferRoomGroupAdminReq, userID int) error
-	GetUserOnRoom(ctx context.Context, roomId int) ([]*core.RoomUser, error)
+	CreateChatGroup(ctx context.Context, req *core.CreateChatGroupReq, adminID int) error
+	LeaveChatGroup(ctx context.Context, req *core.ChatUser) (*core.ChatMessage, error)
+	JoinChatGroup(ctx context.Context, req *core.ChatUser) (*core.ChatMessage, error)
+	UpdateChatGroupName(ctx context.Context, req *core.UpdateGroupChatNameReq, userId int) (*core.ChatMessage, error)
+	UpdateChatGroupAdmin(ctx context.Context, req *core.UpdateGroupChatAdminReq, userId int) (*core.ChatMessage, error)
+	CreateChatDefault(ctx context.Context, req *core.CreateDefaultChatReq, userID int) error
+	DeleteChat(ctx context.Context, userId, chatId int) error
+	GetUserOnChat(ctx context.Context, chatId int) ([]*core.ChatUser, error)
+	GetWall(ctx context.Context, userId int) ([]*core.WallChatResp, error)
+	SendMessage(ctx context.Context, req *core.SendMessageReq, userId int) (*core.ChatMessage, error)
+	GetMessages(ctx context.Context, chatId int) ([]*core.ChatMessage, error)
+	IsAdmin(ctx context.Context, userId int, chatId int) (bool, error)
 }
 
 type Handler struct {
 	authService    Auth
 	profileService Profile
 	wsService      WebSocket
-
-	eventCh chan []byte
 
 	log *logrus.Logger
 }
@@ -64,17 +64,15 @@ func NewHandler(deps Deps) *Handler {
 		profileService: deps.Profile,
 		wsService:      deps.WebSocket,
 
-		eventCh: make(chan []byte),
-
 		log: deps.Log,
 	}
 }
 
 func (h *Handler) InitRouter(api *mux.Router) *mux.Router {
-
-	h.initRoomRouter(api)
-	h.initProfileRouter(api)
 	h.initAuthRouter(api)
+	h.initProfileRouter(api)
+	h.initStreamRouter(api)
+	h.initWebSocketRouter(api)
 
 	return api
 }

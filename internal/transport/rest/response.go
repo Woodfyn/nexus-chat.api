@@ -3,28 +3,42 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/Woodfyn/chat-api-backend-go/internal/core"
 )
 
-type response struct {
-	Message string `json:"message"`
-}
-
-func NewResponse(w http.ResponseWriter, status int, message string) error {
-	if message == "OK" {
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(status)
-
-		return nil
-	}
-
+func NewResponse(w http.ResponseWriter, status int, input any) error {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 
-	msg := response{Message: message}
+	if input == nil {
+		return nil
+	}
 
-	respose, err := json.Marshal(msg)
+	respose, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(respose)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
+func NewErrorResponse(w http.ResponseWriter, status int, msg string) error {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	msgErr := errorResponse{
+		Error: msg,
+	}
+
+	respose, err := json.Marshal(msgErr)
 	if err != nil {
 		return err
 	}
@@ -58,13 +72,4 @@ func NewTokenResponse(w http.ResponseWriter, status int, token string) error {
 	}
 
 	return nil
-}
-
-func NewEventResponse(event *core.Event) ([]byte, error) {
-	response := &core.EventResponse{
-		Header:  event.Header,
-		Message: event.Message,
-	}
-
-	return json.Marshal(response)
 }

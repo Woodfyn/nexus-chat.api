@@ -8,225 +8,631 @@ import (
 	"strconv"
 
 	"github.com/Woodfyn/chat-api-backend-go/internal/core"
-	"github.com/Woodfyn/chat-api-backend-go/internal/transport/rest/ws"
+	"github.com/Woodfyn/chat-api-backend-go/internal/transport/rest/websocket"
+	"github.com/sirupsen/logrus"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
-func (h *Handler) initRoomRouter(api *mux.Router) {
-	ws := api.PathPrefix("/ws").Subrouter()
+func (h *Handler) initWebSocketRouter(api *mux.Router) {
+	chat := api.PathPrefix("/chat").Subrouter()
 	{
-		ws.Use(h.AuthMiddleware)
+		chat.Use(h.AuthMiddleware, h.StreamMiddleware)
 
-		ws.HandleFunc("/wall", h.wsWall).Methods(http.MethodGet)
-		ws.HandleFunc("/send", h.wsSendMessage).Methods(http.MethodPost)
-		ws.HandleFunc("/get/messages/{roomId}", h.wsGetMessages).Methods(http.MethodGet)
-		ws.HandleFunc("/join/{roomId}", h.wsJoinRoom).Methods(http.MethodGet)
-		ws.HandleFunc("/leave/{roomId}", h.wsLeaveRoom).Methods(http.MethodGet)
-
-		create := ws.PathPrefix("/create").Subrouter()
+		groupChat := chat.PathPrefix("/group").Subrouter()
 		{
-			create.HandleFunc("/create/group", h.wsCreateRoomGroup).Methods(http.MethodPost)
-			create.HandleFunc("/create/user", h.wsCreateRoomUser).Methods(http.MethodPost)
+			groupChat.HandleFunc("/create", h.wsCreateChatGroup).Methods(http.MethodPost)
+			groupChat.HandleFunc("/join", h.wsJoinChatGroup).Methods(http.MethodPost)
+			groupChat.HandleFunc("/leave/{chatId}", h.wsLeaveChatGroup).Methods(http.MethodDelete)
+
+			admin := groupChat.PathPrefix("/admin").Subrouter()
+			{
+				admin.HandleFunc("/update", h.wsUpdateChatGroupAdmin).Methods(http.MethodPut)
+				admin.HandleFunc("/update/name", h.wsUpdateChatGroupName).Methods(http.MethodPut)
+				admin.HandleFunc("/delete/{chatId}", h.wsDeleteChatGroup).Methods(http.MethodDelete)
+			}
 		}
 
-		admin := ws.PathPrefix("/admin").Subrouter()
+		defaultChat := chat.PathPrefix("/default").Subrouter()
 		{
-			admin.Use(nil)
-
-			admin.HandleFunc("/delete/{roomId}", h.wsDeleteRoom).Methods(http.MethodDelete)
-			admin.HandleFunc("/update/group-name", h.wsUpdateRoomGroupName).Methods(http.MethodPut)
-			admin.HandleFunc("/transfer-admin", h.wsTransferRoomGroupAdmin).Methods(http.MethodPut)
+			defaultChat.HandleFunc("/create", h.wsCreateChatDefault).Methods(http.MethodPost)
+			defaultChat.HandleFunc("/delete/{chatId}", h.wsDeleteChatDefault).Methods(http.MethodDelete)
 		}
 
-		stream := ws.PathPrefix("/stream").Subrouter()
+		chat.HandleFunc("/wall", h.wsWall).Methods(http.MethodGet)
+
+		msg := chat.PathPrefix("/message").Subrouter()
 		{
-			stream.HandleFunc("/connect", h.wsStream).Methods(http.MethodGet)
-			stream.HandleFunc("/disconnect", h.wsStreamStop).Methods(http.MethodGet)
+			msg.HandleFunc("/send", h.wsSendMessage).Methods(http.MethodPost)
+			msg.HandleFunc("/get/{chatId}", h.wsGetMessages).Methods(http.MethodGet)
 		}
 	}
+
 }
 
-// @Summary Stream
-// @Tags Websocket
+// @Summary CreateChatGroup
+// @Tags Chat
 // @Security ApiKeyAuth
-// @Description stream session
-// @ID stream
-// @Failure 400,500 {object} response
-// @Router /ws/stream/ [get]
-func (h *Handler) wsStream(w http.ResponseWriter, r *http.Request) {
+// @Description create chat group
+// @ID createChatGroup
+// @Accept json
+// @Produce json
+// @Param input body core.CreateChatGroupReq true "create chat group"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/group/create [post]
+func (h *Handler) wsCreateChatGroup(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
-	ws, err := ws.InitWebSocket(w, r)
+	var req *core.CreateChatGroupReq
+	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> InitWebSocket"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	for {
-		select {
-		case eventBytes := <-h.eventCh:
-			var event *core.Event
-			if err := json.Unmarshal(eventBytes, &event); err != nil {
-				h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Unmarshal"}).Error(err)
-				NewResponse(w, http.StatusBadRequest, err.Error())
+	if err := json.Unmarshal(reqBytes, &req); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer r.Body.Close()
+
+	if err = h.wsService.CreateChatGroup(r.Context(), req, userId); err != nil {
+		if errors.Is(err, core.ErrDuplicatedKey) {
+			NewErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
+			return
+		}
+
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary CreateChatDefault
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description create chat default
+// @ID createChatDefault
+// @Accept json
+// @Produce json
+// @Param input body core.CreateDefaultChatReq true "create chat default"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/default/create [post]
+func (h *Handler) wsCreateChatDefault(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	var req *core.CreateDefaultChatReq
+	reqBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := json.Unmarshal(reqBytes, &req); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer r.Body.Close()
+
+	if err = h.wsService.CreateChatDefault(r.Context(), req, userId); err != nil {
+		if errors.Is(err, core.ErrDuplicatedKey) {
+			NewErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
+			return
+		}
+
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary JoinChat
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description join chat
+// @ID joinChat
+// @Produce json
+// @Param chatId path string true "chat id"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/group/join/{chatId} [post]
+func (h *Handler) wsJoinChatGroup(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	var req *core.JoinChatGroupReq
+	reqBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := json.Unmarshal(reqBytes, &req); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer r.Body.Close()
+
+	msg, err := h.wsService.JoinChatGroup(r.Context(), &core.ChatUser{
+		UserID: userId,
+		ChatID: req.ChatID,
+	})
+
+	switch err {
+	case nil:
+		chatUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
+		if err != nil {
+			NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		for _, chatUser := range chatUsers {
+			event := core.Event{
+				Header:        core.JoinChatEventHeader,
+				Message:       msg,
+				ReceiveUserID: chatUser.UserID,
+			}
+
+			if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
+				NewErrorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
-
-			if event.ReceiveUserID == userId {
-				if event.Message.UserID == userId {
-					event.Message.Username = "You"
-				}
-
-				eventRespBytes, err := NewEventResponse(event)
-				if err != nil {
-					h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> NewEventResponse"}).Error(err)
-					NewResponse(w, http.StatusInternalServerError, err.Error())
-					return
-				}
-
-				if err := ws.WriteMessage(websocket.TextMessage, eventRespBytes); err != nil {
-					h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> WriteMessage"}).Error(err)
-					NewResponse(w, http.StatusInternalServerError, err.Error())
-					return
-				}
-			}
-		default:
-			continue
 		}
+
+		NewResponse(w, http.StatusOK, nil)
+		return
+	case core.ErrChatGroupFull, core.ErrConnotJoinChat, core.ErrInvalideChatID:
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	default:
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 }
 
-func (h *Handler) wsStreamStop(w http.ResponseWriter, r *http.Request) {}
+// @Summary LeaveChatGroup
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description leave chat group
+// @ID leaveChatGroup
+// @Produce json
+// @Param chatId path string true "chat id"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/group/leave/{chatId} [delete]
+func (h *Handler) wsLeaveChatGroup(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	chatId, err := getChatIdFromRequest(r)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	ok, err = h.wsService.IsAdmin(r.Context(), userId, chatId)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	} else if ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrAdminCannnotLeave.Error())
+		return
+	}
+
+	msg, err := h.wsService.LeaveChatGroup(r.Context(), &core.ChatUser{
+		UserID: userId,
+		ChatID: chatId,
+	})
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	chatUsers, err := h.wsService.GetUserOnChat(r.Context(), chatId)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	for _, chatUser := range chatUsers {
+		event := core.Event{
+			Header:        core.LeaveChatGroupEventHeader,
+			Message:       msg,
+			ReceiveUserID: chatUser.UserID,
+		}
+
+		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
+			NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		}
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary DeleteChatGroup
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description delete chat group
+// @ID deleteChatGroup
+// @Produce json
+// @Param chatId path string true "chat id"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/group/admin/delete/{chatId} [delete]
+func (h *Handler) wsDeleteChatGroup(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	chatId, err := getChatIdFromRequest(r)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	ok, err = h.wsService.IsAdmin(r.Context(), userId, chatId)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
+		return
+	} else if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := h.wsService.DeleteChat(r.Context(), userId, chatId); err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary DeleteChatDefault
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description delete chat default
+// @ID deleteChatDefault
+// @Produce json
+// @Param chatId path string true "chat id"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/default/delete/{chatId} [delete]
+func (h *Handler) wsDeleteChatDefault(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	chatId, err := getChatIdFromRequest(r)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.wsService.DeleteChat(r.Context(), userId, chatId); err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary UpdateChatGroupName
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description update chat group name
+// @ID updateChatGroupName
+// @Accept json
+// @Produce json
+// @Param input body core.UpdateGroupChatNameReq true "update chat group name"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/group/admin/update [put]
+func (h *Handler) wsUpdateChatGroupName(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	var req *core.UpdateGroupChatNameReq
+	reqBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := json.Unmarshal(reqBytes, &req); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer r.Body.Close()
+
+	ok, err = h.wsService.IsAdmin(r.Context(), userId, req.ChatID)
+	if !ok {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	} else if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
+		return
+	}
+
+	msg, err := h.wsService.UpdateChatGroupName(r.Context(), req, userId)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	cahtUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	for _, chatUser := range cahtUsers {
+		event := core.Event{
+			Header:        core.UpdateChatGroupName,
+			Message:       msg,
+			ReceiveUserID: chatUser.UserID,
+		}
+
+		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
+			NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		}
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary TransferChatGroupAdmin
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description transfer chat group admin
+// @ID transferChatGroupAdmin
+// @Accept json
+// @Produce json
+// @Param input body core.UpdateGroupChatAdminReq true "update chat group admin"
+// @Success 200
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/group/admin/update [put]
+func (h *Handler) wsUpdateChatGroupAdmin(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	var req *core.UpdateGroupChatAdminReq
+	reqBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := json.Unmarshal(reqBytes, &req); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer r.Body.Close()
+
+	ok, err = h.wsService.IsAdmin(r.Context(), userId, req.ChatID)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	} else if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
+		return
+	}
+
+	msg, err := h.wsService.UpdateChatGroupAdmin(r.Context(), req, userId)
+	if err != nil {
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	cahtUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	for _, chatUser := range cahtUsers {
+		event := core.Event{
+			Header:        core.UpdateChatGroupAdmin,
+			Message:       msg,
+			ReceiveUserID: chatUser.UserID,
+		}
+
+		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
+			NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		}
+	}
+
+	NewResponse(w, http.StatusOK, nil)
+}
+
+// @Summary ChatWall
+// @Tags Chat
+// @Security ApiKeyAuth
+// @Description get chat wall
+// @ID chatWall
+// @Produce json
+// @Success 200 {array} core.WallChatResp
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/wall [get]
+func (h *Handler) wsWall(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int)
+	if !ok {
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		return
+	}
+
+	h.log.Info("userId: r.Context().Value('userId').(int) ", userId)
+
+	response, err := h.wsService.GetWall(r.Context(), userId)
+	if err != nil {
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.log.WithFields(logrus.Fields{"level": "transport"}).Info("response: ", response)
+
+	NewResponse(w, http.StatusOK, response)
+}
 
 // @Summary SendMessage
-// @Tags Websocket
+// @Tags Chat
 // @Security ApiKeyAuth
 // @Description send message
 // @ID sendMessage
 // @Produce json
+// @Accept json
 // @Param message body core.SendMessageReq true "message"
-// @Param roomId path string true "room id"
 // @Seccess 200
-// @Failure 400,500 {object} response
-// @Router /ws/send [post]
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/message/send [post]
 func (h *Handler) wsSendMessage(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.SendMessageReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> ReadAll"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> Unmarshal"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> Validate"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	roomUsers, err := h.wsService.GetUserOnRoom(r.Context(), req.RoomId)
+	defer r.Body.Close()
+
+	chatUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> GetUserOnRoom"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	if len(roomUsers) == 0 {
-		h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> GetUserOnRoom"}).Error(err)
-		NewResponse(w, int(http.StatusForbidden), "You have no chats")
+	if len(chatUsers) == 0 {
+		NewErrorResponse(w, http.StatusForbidden, core.ErrNoChats.Error())
 		return
 	}
 
-	for _, roomUser := range roomUsers {
-		if req.RoomId != roomUser.RoomID {
-			h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> GetUserOnRoom"}).Error(err)
-			NewResponse(w, int(http.StatusForbidden), "You have no chats")
+	for _, chatUser := range chatUsers {
+		if req.ChatID != chatUser.ChatID {
+			NewErrorResponse(w, http.StatusBadRequest, core.ErrInvalideChatID.Error())
 			return
 		}
 	}
 
 	msg, err := h.wsService.SendMessage(r.Context(), req, userId)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> SaveMessage"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	for _, user := range roomUsers {
+	for _, chatUser := range chatUsers {
 		event := core.Event{
 			Header:        core.NewMessageEventHeader,
-			Message:       core.PtrMsgToNonePtrMsg(msg),
-			ReceiveUserID: user.UserID,
+			Message:       msg,
+			ReceiveUserID: chatUser.UserID,
 		}
 
-		eventByte, err := json.Marshal(event)
-		if err != nil {
-			h.log.WithFields(logrus.Fields{"handler": "wsSendMessage -> Marshal"}).Error(err)
-			continue
+		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
+			NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		}
-
-		h.eventCh <- eventByte
 	}
 
-	NewResponse(w, http.StatusOK, "OK")
+	NewResponse(w, http.StatusOK, nil)
 }
 
 // @Summary GetMessages
-// @Tags Websocket
+// @Tags Chat
 // @Security ApiKeyAuth
-// @Description get messages for room
+// @Description get messages from chat
 // @ID getMessages
 // @Produce json
-// @Param roomId path string true "room id"
-// @Seccess 200 {array} core.RoomMessage
-// @Failure 400,500 {object} response
-// @Router /get/messages/{roomId} [get]
+// @Param roomId path string true "chat id"
+// @Seccess 200 {array} core.ChatMessage
+// @Failure 400,500 {object} errorResponse
+// @Router /api/chat/message/get/{chatId} [get]
 func (h *Handler) wsGetMessages(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
+		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
-	roomId, err := getRoomIdFromRequest(r)
+	chatId, err := getChatIdFromRequest(r)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	req := &core.RoomUser{
-		UserID: userId,
-		RoomID: roomId,
-	}
-
-	messages, err := h.wsService.GetMessages(r.Context(), req)
+	messages, err := h.wsService.GetMessages(r.Context(), chatId)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "wsGetMessages -> GetMessages"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -236,378 +642,20 @@ func (h *Handler) wsGetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	response, err := json.Marshal(messages)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "profileWallRooms -> Marshal"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if _, err := w.Write(response); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "profileWallRooms -> Write"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+	NewResponse(w, http.StatusOK, messages)
 }
 
-// @Summary CreateRoom
-// @Tags Websocket
-// @Security ApiKeyAuth
-// @Description create room
-// @ID createRoom
-// @Accept json
-// @Produce json
-// @Param input body core.CreateRoomReq true "create room"
-// @Success 200
-// @Failure 400,500 {object} response
-// @Router /create [post]
-func (h *Handler) wsCreateRoomGroup(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	var req *core.CreateRoomGroupReq
-	reqBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> ReadAll"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> Unmarshal"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> Validate"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err = h.wsService.CreateRoomGroup(r.Context(), req, userId); err != nil {
-		if errors.Is(err, core.ErrDuplicatedKey) {
-			h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> CreateRoom"}).Error(err)
-			NewResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> CreateRoom"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	NewResponse(w, http.StatusOK, "OK")
-}
-
-func (h *Handler) wsCreateRoomUser(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	var req *core.CreateRoomUserReq
-	reqBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> ReadAll"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> Unmarshal"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> Validate"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err = h.wsService.CreateRoomUser(r.Context(), req, userId); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> CreateRoom"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	NewResponse(w, http.StatusOK, "OK")
-}
-
-func (h *Handler) wsTransferRoomGroupAdmin(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileUpdate -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	var req *core.TransferRoomGroupAdminReq
-	reqBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> ReadAll"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> Unmarshal"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> Validate"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if err = h.wsService.TransferRoomGroupAdmin(r.Context(), req, userId); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "CreateRoom -> CreateRoom"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	NewResponse(w, http.StatusOK, "OK")
-}
-
-// @Summary JoinRoom
-// @Tags Websocket
-// @Security ApiKeyAuth
-// @Description join room
-// @ID joinRoom
-// @Produce json
-// @Param roomId path string true "room id"
-// @Success 200
-// @Failure 400,500 {object} response
-// @Router /join/{roomId} [get]
-func (h *Handler) wsJoinRoom(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	roomId, err := getRoomIdFromRequest(r)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req := &core.RoomUser{
-		UserID: userId,
-		RoomID: roomId,
-	}
-
-	msg, err := h.wsService.JoinRoom(r.Context(), req)
-	if err != nil {
-		if errors.Is(err, core.ErrJoinAlreadyExist) {
-			h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> JoinRoom"}).Error(err)
-			NewResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> JoinRoom"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	roomUsers, err := h.wsService.GetUserOnRoom(r.Context(), roomId)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> GetUserOnRoom"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	for _, user := range roomUsers {
-		event := core.Event{
-			Header:        core.JoinRoomEventHeader,
-			Message:       core.PtrMsgToNonePtrMsg(msg),
-			ReceiveUserID: user.UserID,
-		}
-
-		eventByte, err := json.Marshal(event)
-		if err != nil {
-			h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> Marshal"}).Error(err)
-			NewResponse(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-
-		h.eventCh <- eventByte
-	}
-
-	NewResponse(w, http.StatusOK, "OK")
-}
-
-// @Summary LeaveRoom
-// @Tags Websocket
-// @Security ApiKeyAuth
-// @Description leave room
-// @ID leaveRoom
-// @Produce json
-// @Param roomId path string true "room id"
-// @Success 200
-// @Failure 400,500 {object} response
-// @Router /leave/{roomId} [get]
-func (h *Handler) wsLeaveRoom(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	roomId, err := getRoomIdFromRequest(r)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req := &core.RoomUser{
-		UserID: userId,
-		RoomID: roomId,
-	}
-
-	msg, err := h.wsService.LeaveRoom(r.Context(), req)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> JoinRoom"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	roomUsers, err := h.wsService.GetUserOnRoom(r.Context(), roomId)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> GetUserOnRoom"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	for _, user := range roomUsers {
-		event := core.Event{
-			Header:        core.LeaveRoomEventHeader,
-			Message:       core.PtrMsgToNonePtrMsg(msg),
-			ReceiveUserID: user.UserID,
-		}
-
-		eventByte, err := json.Marshal(event)
-		if err != nil {
-			h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> Marshal"}).Error(err)
-			NewResponse(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-
-		h.eventCh <- eventByte
-	}
-
-	NewResponse(w, http.StatusOK, "OK")
-}
-
-// @Summary DeleteRoom
-// @Tags Websocket
-// @Security ApiKeyAuth
-// @Description delete room
-// @ID deleteRoom
-// @Produce json
-// @Param roomId path string true "room id"
-// @Success 200
-// @Failure 400,500 {object} response
-// @Router /delete/{roomId} [get]
-func (h *Handler) wsDeleteRoom(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	roomId, err := getRoomIdFromRequest(r)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> getRoomIdFromRequest"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req := &core.RoomUser{
-		UserID: userId,
-		RoomID: roomId,
-	}
-
-	if err := h.wsService.DeleteRoom(r.Context(), req); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "roomJoinRoom -> JoinRoom"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	NewResponse(w, http.StatusOK, "OK")
-}
-
-func getRoomIdFromRequest(r *http.Request) (int, error) {
+func getChatIdFromRequest(r *http.Request) (int, error) {
 	vars := mux.Vars(r)
-	roomId := vars["roomId"]
-	if roomId == "" {
-		return 0, core.ErrEmptyRoomId
+	chatId := vars["chatId"]
+	if chatId == "" {
+		return 0, core.ErrEmptyUserID
 	}
 
-	roomIdInt, err := strconv.Atoi(roomId)
+	chatIdInt, err := strconv.Atoi(chatId)
 	if err != nil {
 		return 0, err
 	}
 
-	return roomIdInt, nil
-}
-
-func (h *Handler) wsUpdateRoomGroupName(w http.ResponseWriter, r *http.Request) {}
-
-// @Summary RoomWall
-// @Tags Websocket
-// @Security ApiKeyAuth
-// @Description get room wall
-// @ID roomWall
-// @Produce json
-// @Success 200 {array} core.WallRoomResponse
-// @Failure 400,500 {object} response
-// @Router /wall [get]
-func (h *Handler) wsWall(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value("userId").(int)
-	if !ok {
-		h.log.WithFields(logrus.Fields{"handler": "profileWallRooms -> Context"}).Error(core.ErrEmptyUserId)
-		NewResponse(w, http.StatusBadRequest, core.ErrEmptyUserId.Error())
-		return
-	}
-
-	response, err := h.wsService.GetWall(r.Context(), userId)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "profileWallRooms -> GetRoomsWall"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	responseBytes, err := json.Marshal(response)
-	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "profileWallRooms -> Marshal"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if _, err := w.Write(responseBytes); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "profileWallRooms -> Write"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
+	return chatIdInt, nil
 }

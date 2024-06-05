@@ -29,11 +29,7 @@ func NewVerife(redis *redis.Client, ttl time.Duration, log *logrus.Logger) *Veri
 }
 
 func (v *Verify) SetCode(ctx context.Context, id int, code string) error {
-	if err := v.redis.Set(code, id, v.ttl).Err(); err != nil {
-		return err
-	}
-
-	return nil
+	return v.redis.Set(code, id, v.ttl).Err()
 }
 
 func (v *Verify) Verify(ctx context.Context, code string) (string, error) {

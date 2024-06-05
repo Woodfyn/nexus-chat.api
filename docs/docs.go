@@ -47,13 +47,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -83,13 +83,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -127,13 +127,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -172,13 +172,464 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/default/create": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "create chat default",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "CreateChatDefault",
+                "operationId": "createChatDefault",
+                "parameters": [
+                    {
+                        "description": "create chat default",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/core.CreateDefaultChatReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/default/delete/{chatId}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "delete chat default",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "DeleteChatDefault",
+                "operationId": "deleteChatDefault",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "chat id",
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/group/admin/delete/{chatId}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "delete chat group",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "DeleteChatGroup",
+                "operationId": "deleteChatGroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "chat id",
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/group/admin/update": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "transfer chat group admin",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "TransferChatGroupAdmin",
+                "operationId": "transferChatGroupAdmin",
+                "parameters": [
+                    {
+                        "description": "update chat group admin",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/core.UpdateGroupChatAdminReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/group/create": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "create chat group",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "CreateChatGroup",
+                "operationId": "createChatGroup",
+                "parameters": [
+                    {
+                        "description": "create chat group",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/core.CreateChatGroupReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/group/join/{chatId}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "join chat",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "JoinChat",
+                "operationId": "joinChat",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "chat id",
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/group/leave/{chatId}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "leave chat group",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "LeaveChatGroup",
+                "operationId": "leaveChatGroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "chat id",
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/message/get/{chatId}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "get messages from chat",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "GetMessages",
+                "operationId": "getMessages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "chat id",
+                        "name": "roomId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/message/send": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "send message",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "SendMessage",
+                "operationId": "sendMessage",
+                "parameters": [
+                    {
+                        "description": "message",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/core.SendMessageReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chat/wall": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "get chat wall",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "ChatWall",
+                "operationId": "chatWall",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/core.WallChatResp"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -191,7 +642,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get profile",
+                "description": "get profile",
                 "produces": [
                     "application/json"
                 ],
@@ -207,7 +658,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/core.GetProfileResponse"
+                            "$ref": "#/definitions/core.GetProfileResp"
                         }
                     }
                 ],
@@ -218,13 +669,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -237,7 +688,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Delete avatar",
+                "description": "delete avatar by avatar id",
                 "produces": [
                     "application/json"
                 ],
@@ -262,13 +713,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -281,7 +732,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Upload avatar",
+                "description": "upload avatar",
                 "produces": [
                     "application/json"
                 ],
@@ -306,13 +757,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -325,7 +776,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get all avatars",
+                "description": "get all avatars",
                 "produces": [
                     "application/json"
                 ],
@@ -340,20 +791,20 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/core.GetAllUSerAvatarsResponse"
+                                "$ref": "#/definitions/core.GetAllUserAvatarsResp"
                             }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -366,7 +817,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Update profile",
+                "description": "update profile",
                 "consumes": [
                     "application/json"
                 ],
@@ -391,56 +842,68 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/core.User"
-                        }
+                        "description": "OK"
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
             }
         },
-        "/create": {
+        "/api/stream/connect": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "connect to a streaming session",
+                "tags": [
+                    "Stream"
+                ],
+                "summary": "Connect",
+                "operationId": "streamConnect",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/stream/disconnect": {
             "post": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "create room",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "disconnect from the streaming session",
                 "tags": [
-                    "Websocket"
+                    "Stream"
                 ],
-                "summary": "CreateRoom",
-                "operationId": "createRoom",
-                "parameters": [
-                    {
-                        "description": "create room",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/core.CreateRoomReq"
-                        }
-                    }
-                ],
+                "summary": "Disconnect",
+                "operationId": "streamDisconnect",
                 "responses": {
                     "200": {
                         "description": "OK"
@@ -448,306 +911,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/delete/{roomId}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "delete room",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "DeleteRoom",
-                "operationId": "deleteRoom",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "room id",
-                        "name": "roomId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/get/messages/{roomId}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "get messages for room",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "GetMessages",
-                "operationId": "getMessages",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "room id",
-                        "name": "roomId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/join/{roomId}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "join room",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "JoinRoom",
-                "operationId": "joinRoom",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "room id",
-                        "name": "roomId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/leave/{roomId}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "leave room",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "LeaveRoom",
-                "operationId": "leaveRoom",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "room id",
-                        "name": "roomId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/wall": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "get room wall",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "RoomWall",
-                "operationId": "roomWall",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/core.WallRoomResponse"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/ws/send": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "send message",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "SendMessage",
-                "operationId": "sendMessage",
-                "parameters": [
-                    {
-                        "description": "message",
-                        "name": "message",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/core.SendMessageReq"
-                        }
-                    },
-                    {
-                        "type": "string",
-                        "description": "room id",
-                        "name": "roomId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    }
-                }
-            }
-        },
-        "/ws/stream/": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "stream session",
-                "tags": [
-                    "Websocket"
-                ],
-                "summary": "Stream",
-                "operationId": "stream",
-                "responses": {
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/rest.response"
+                            "$ref": "#/definitions/rest.errorResponse"
                         }
                     }
                 }
@@ -782,18 +952,29 @@ const docTemplate = `{
                 }
             }
         },
-        "core.CreateRoomReq": {
+        "core.CreateChatGroupReq": {
             "type": "object",
             "required": [
-                "name"
+                "chat_name"
             ],
             "properties": {
-                "name": {
+                "chat_name": {
                     "type": "string"
                 }
             }
         },
-        "core.GetAllUSerAvatarsResponse": {
+        "core.CreateDefaultChatReq": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.GetAllUserAvatarsResp": {
             "type": "object",
             "properties": {
                 "avatar_id": {
@@ -801,13 +982,10 @@ const docTemplate = `{
                 },
                 "avatar_url": {
                     "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
                 }
             }
         },
-        "core.GetProfileResponse": {
+        "core.GetProfileResp": {
             "type": "object",
             "properties": {
                 "avatar_url": {
@@ -827,14 +1005,44 @@ const docTemplate = `{
         "core.SendMessageReq": {
             "type": "object",
             "required": [
-                "room_id",
+                "chat_id",
                 "text"
             ],
             "properties": {
-                "room_id": {
+                "chat_id": {
                     "type": "integer"
                 },
                 "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.UpdateGroupChatAdminReq": {
+            "type": "object",
+            "required": [
+                "chat_id",
+                "new_admin_id"
+            ],
+            "properties": {
+                "chat_id": {
+                    "type": "integer"
+                },
+                "new_admin_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "core.UpdateGroupChatNameReq": {
+            "type": "object",
+            "required": [
+                "chat_id",
+                "new_chat_name"
+            ],
+            "properties": {
+                "chat_id": {
+                    "type": "integer"
+                },
+                "new_chat_name": {
                     "type": "string"
                 }
             }
@@ -855,55 +1063,24 @@ const docTemplate = `{
                 }
             }
         },
-        "core.User": {
+        "core.WallChatResp": {
             "type": "object",
             "properties": {
-                "id": {
+                "chat_id": {
                     "type": "integer"
                 },
-                "image": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/core.UserAvatar"
-                    }
-                },
-                "phone": {
+                "chat_last_message": {
                     "type": "string"
                 },
-                "username": {
+                "chat_name": {
                     "type": "string"
                 }
             }
         },
-        "core.UserAvatar": {
+        "rest.errorResponse": {
             "type": "object",
             "properties": {
-                "id": {
-                    "type": "integer"
-                },
-                "userId": {
-                    "type": "integer"
-                }
-            }
-        },
-        "core.WallRoomResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "integer"
-                },
-                "last_message": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "rest.response": {
-            "type": "object",
-            "properties": {
-                "message": {
+                "error": {
                     "type": "string"
                 }
             }

@@ -10,7 +10,6 @@ import (
 	"github.com/Woodfyn/chat-api-backend-go/internal/core"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 )
 
 func (h *Handler) initAuthRouter(r *mux.Router) {
@@ -27,103 +26,81 @@ func (h *Handler) initAuthRouter(r *mux.Router) {
 // @Tags Auth
 // @Description register
 // @ID register
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Param input body core.AuthRegister true "credentials"
 // @Success 200
-// @Failure 400,500 {object} response
+// @Failure 400,500 {object} errorResponse
 // @Router /api/auth/register [post]
 func (h *Handler) authRegister(w http.ResponseWriter, r *http.Request) {
 	var auth *core.AuthRegister
-
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authRegister -> ReadAll"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &auth); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authRegister -> Unmarshal"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := auth.Validate(); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authRegister -> Validate"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// file, _, err := r.FormFile("avatar")
-	// if err != nil && !errors.Is(err, http.ErrMissingFile) {
-	// 	h.log.WithFields(logrus.Fields{"handler": "authRegister -> FormFile"}).Error(err)
-	// 	NewResponse(w, http.StatusBadRequest, err.Error())
-	// 	return
-	// }
-	// defer file.Close()
+	defer r.Body.Close()
 
 	if err := h.authService.Register(r.Context(), auth); err != nil {
-		if errors.Is(err, core.ErrThisCredIsAlready) {
-			h.log.WithFields(logrus.Fields{"handler": "authRegister -> Register"}).Error(err)
-			NewResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
-		h.log.WithFields(logrus.Fields{"handler": "authRegister -> Register"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, "OK")
+	NewResponse(w, http.StatusOK, nil)
 }
 
 // @Summary Login
 // @Tags Auth
 // @Description login
 // @ID login
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Param input body core.AuthLogin true "credentials"
 // @Success 200
-// @Failure 400,500 {object} response
+// @Failure 400,500 {object} errorResponse
 // @Router /api/auth/login [post]
 func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 	var auth *core.AuthLogin
-
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authLogin -> ReadAll"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &auth); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authLogin -> Unmarshal"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := auth.Validate(); err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authLogin -> Validate"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	defer r.Body.Close()
 
 	if err = h.authService.Login(r.Context(), auth); err != nil {
 		if errors.Is(err, core.ErrUserNotFound) {
-			h.log.WithFields(logrus.Fields{"handler": "authLogin -> Login"}).Error(err)
-			NewResponse(w, http.StatusBadRequest, err.Error())
+			NewErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		h.log.WithFields(logrus.Fields{"handler": "authLogin -> Login"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	NewResponse(w, http.StatusOK, nil)
 }
 
 // @Summary Verify
@@ -134,26 +111,23 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 // @Produce  json
 // @Param code path string true "code"
 // @Success 200 {object} tokenResponse
-// @Failure 400,500 {object} response
+// @Failure 400,500 {object} errorResponse
 // @Router /api/auth/verify/{code} [get]
 func (h *Handler) authVerify(w http.ResponseWriter, r *http.Request) {
 	code, err := getCodeFromRequest(r)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authVerify -> getCodeFromRequest"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tokens, err := h.authService.Verify(r.Context(), code)
 	if err != nil {
 		if errors.Is(err, core.ErrCodeNotFound) {
-			h.log.WithFields(logrus.Fields{"handler": "authVerify -> Verify"}).Error(err)
-			NewResponse(w, http.StatusBadRequest, err.Error())
+			NewErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		h.log.WithFields(logrus.Fields{"handler": "authVerify -> Verify"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -172,34 +146,32 @@ func (h *Handler) authVerify(w http.ResponseWriter, r *http.Request) {
 // @Tags Auth
 // @Description refresh
 // @ID refresh
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Success 200 {object} tokenResponse
-// @Failure 400,500 {object} response
+// @Failure 400,500 {object} errorResponse
 // @Router /api/auth/refresh [post]
 func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("Authorization")
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authRefresh -> Cookie"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	refreshToken, err := getTokenFromCookie(cookie.Value)
 	if err != nil {
-		h.log.WithFields(logrus.Fields{"handler": "authRefresh -> getTokenFromCookie"}).Error(err)
-		NewResponse(w, http.StatusBadRequest, err.Error())
+		NewErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tokens, err := h.authService.Refresh(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, core.ErrRefreshTokenNotFound) {
-			NewResponse(w, http.StatusUnauthorized, err.Error())
+			NewErrorResponse(w, http.StatusUnauthorized, err.Error())
 			return
 		}
-		h.log.WithFields(logrus.Fields{"handler": "authRefresh -> Refresh"}).Error(err)
-		NewResponse(w, http.StatusInternalServerError, err.Error())
+
+		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 

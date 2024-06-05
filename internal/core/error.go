@@ -19,24 +19,33 @@ var (
 	ErrRefreshTokenIsExpired = errors.New("refresh token not found")
 
 	ErrUserNotFound      = errors.New("user not found")
-	ErrEmptyUserId       = errors.New("user id is empty")
+	ErrEmptyUserID       = errors.New("user id is empty")
 	ErrEmptyUsername     = errors.New("username is empty")
 	ErrThisCredIsAlready = errors.New("this cred is already")
 	ErrRecordNotFound    = gorm.ErrRecordNotFound
 
-	ErrCodeMismatch = errors.New("code mismatch")
 	ErrCodeNotFound = errors.New("code not found")
 
 	ErrEmptyCode = errors.New("code is empty")
 
 	ErrDuplicatedKey = gorm.ErrDuplicatedKey
 
-	ErrEmptyRoomId = errors.New("room id is empty")
+	ErrEmptyChatID    = errors.New("chat id is empty")
+	ErrInvalideChatID = errors.New("invalid chat id")
 
 	ErrNoneMessage = errors.New("none message")
 
-	ErrJoinAlreadyExist = errors.New("user already in room")
-
-	ErrEmptyAvatarId  = errors.New("avatar id is empty")
+	ErrEmptyAvatarID  = errors.New("avatar id is empty")
 	ErrAvatarNotFound = errors.New("avatar not found")
+
+	ErrStreamNotAvailable = errors.New("stream not available")
+	ErrStreamIsClosed     = errors.New("stream is closed")
+
+	ErrNotAdmin          = errors.New("you are not admin")
+	ErrAdminCannnotLeave = errors.New("admin cannot leave")
+
+	ErrNoChats        = errors.New("you have no chats")
+	ErrConnotJoinChat = errors.New("cannot join chat")
+	ErrJoinIsAlready  = errors.New("join is already")
+	ErrChatGroupFull  = errors.New("chat group is full")
 )

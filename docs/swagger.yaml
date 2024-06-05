@@ -18,23 +18,28 @@ definitions:
     - phone
     - username
     type: object
-  core.CreateRoomReq:
+  core.CreateChatGroupReq:
     properties:
-      name:
+      chat_name:
         type: string
     required:
-    - name
+    - chat_name
     type: object
-  core.GetAllUSerAvatarsResponse:
+  core.CreateDefaultChatReq:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
+    type: object
+  core.GetAllUserAvatarsResp:
     properties:
       avatar_id:
         type: integer
       avatar_url:
         type: string
-      user_id:
-        type: integer
     type: object
-  core.GetProfileResponse:
+  core.GetProfileResp:
     properties:
       avatar_url:
         type: string
@@ -47,13 +52,33 @@ definitions:
     type: object
   core.SendMessageReq:
     properties:
-      room_id:
+      chat_id:
         type: integer
       text:
         type: string
     required:
-    - room_id
+    - chat_id
     - text
+    type: object
+  core.UpdateGroupChatAdminReq:
+    properties:
+      chat_id:
+        type: integer
+      new_admin_id:
+        type: integer
+    required:
+    - chat_id
+    - new_admin_id
+    type: object
+  core.UpdateGroupChatNameReq:
+    properties:
+      chat_id:
+        type: integer
+      new_chat_name:
+        type: string
+    required:
+    - chat_id
+    - new_chat_name
     type: object
   core.UpdateUserReq:
     properties:
@@ -66,38 +91,18 @@ definitions:
     - name
     - phone
     type: object
-  core.User:
+  core.WallChatResp:
     properties:
-      id:
+      chat_id:
         type: integer
-      image:
-        items:
-          $ref: '#/definitions/core.UserAvatar'
-        type: array
-      phone:
+      chat_last_message:
         type: string
-      username:
+      chat_name:
         type: string
     type: object
-  core.UserAvatar:
+  rest.errorResponse:
     properties:
-      id:
-        type: integer
-      userId:
-        type: integer
-    type: object
-  core.WallRoomResponse:
-    properties:
-      id:
-        type: integer
-      last_message:
-        type: string
-      name:
-        type: string
-    type: object
-  rest.response:
-    properties:
-      message:
+      error:
         type: string
     type: object
   rest.tokenResponse:
@@ -132,11 +137,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       summary: Login
       tags:
       - Auth
@@ -156,11 +161,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       summary: Refresh
       tags:
       - Auth
@@ -185,11 +190,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       summary: Register
       tags:
       - Auth
@@ -215,25 +220,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       summary: Verify
       tags:
       - Auth
-  /api/profile/:
-    get:
-      description: Get profile
-      operationId: getProfile
+  /api/chat/default/create:
+    post:
+      consumes:
+      - application/json
+      description: create chat default
+      operationId: createChatDefault
       parameters:
-      - description: profile
+      - description: create chat default
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/core.GetProfileResponse'
+          $ref: '#/definitions/core.CreateDefaultChatReq'
       produces:
       - application/json
       responses:
@@ -242,11 +249,295 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: CreateChatDefault
+      tags:
+      - Chat
+  /api/chat/default/delete/{chatId}:
+    delete:
+      description: delete chat default
+      operationId: deleteChatDefault
+      parameters:
+      - description: chat id
+        in: path
+        name: chatId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: DeleteChatDefault
+      tags:
+      - Chat
+  /api/chat/group/admin/delete/{chatId}:
+    delete:
+      description: delete chat group
+      operationId: deleteChatGroup
+      parameters:
+      - description: chat id
+        in: path
+        name: chatId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: DeleteChatGroup
+      tags:
+      - Chat
+  /api/chat/group/admin/update:
+    put:
+      consumes:
+      - application/json
+      description: transfer chat group admin
+      operationId: transferChatGroupAdmin
+      parameters:
+      - description: update chat group admin
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/core.UpdateGroupChatAdminReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: TransferChatGroupAdmin
+      tags:
+      - Chat
+  /api/chat/group/create:
+    post:
+      consumes:
+      - application/json
+      description: create chat group
+      operationId: createChatGroup
+      parameters:
+      - description: create chat group
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/core.CreateChatGroupReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: CreateChatGroup
+      tags:
+      - Chat
+  /api/chat/group/join/{chatId}:
+    post:
+      description: join chat
+      operationId: joinChat
+      parameters:
+      - description: chat id
+        in: path
+        name: chatId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: JoinChat
+      tags:
+      - Chat
+  /api/chat/group/leave/{chatId}:
+    delete:
+      description: leave chat group
+      operationId: leaveChatGroup
+      parameters:
+      - description: chat id
+        in: path
+        name: chatId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: LeaveChatGroup
+      tags:
+      - Chat
+  /api/chat/message/get/{chatId}:
+    get:
+      description: get messages from chat
+      operationId: getMessages
+      parameters:
+      - description: chat id
+        in: path
+        name: roomId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: GetMessages
+      tags:
+      - Chat
+  /api/chat/message/send:
+    post:
+      consumes:
+      - application/json
+      description: send message
+      operationId: sendMessage
+      parameters:
+      - description: message
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/core.SendMessageReq'
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: SendMessage
+      tags:
+      - Chat
+  /api/chat/wall:
+    get:
+      description: get chat wall
+      operationId: chatWall
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/core.WallChatResp'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: ChatWall
+      tags:
+      - Chat
+  /api/profile/:
+    get:
+      description: get profile
+      operationId: getProfile
+      parameters:
+      - description: profile
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/core.GetProfileResp'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: GetProfile
@@ -254,7 +545,7 @@ paths:
       - Profile
   /api/profile/avatar/delete/{avatarId}:
     delete:
-      description: Delete avatar
+      description: delete avatar by avatar id
       operationId: deleteAvatar
       parameters:
       - description: avatarId
@@ -270,11 +561,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: DeleteAvatar
@@ -282,7 +573,7 @@ paths:
       - Profile
   /api/profile/avatar/upload:
     post:
-      description: Upload avatar
+      description: upload avatar
       operationId: uploadAvatar
       parameters:
       - description: avatar
@@ -298,11 +589,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: UploadAvatar
@@ -310,7 +601,7 @@ paths:
       - Profile
   /api/profile/avatars:
     get:
-      description: Get all avatars
+      description: get all avatars
       operationId: getAvatars
       produces:
       - application/json
@@ -319,16 +610,16 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/core.GetAllUSerAvatarsResponse'
+              $ref: '#/definitions/core.GetAllUserAvatarsResp'
             type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: GetAvatars
@@ -338,7 +629,7 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Update profile
+      description: update profile
       operationId: updateProfile
       parameters:
       - description: user data to update
@@ -352,238 +643,59 @@ paths:
       responses:
         "200":
           description: OK
-          schema:
-            $ref: '#/definitions/core.User'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: UpdateProfile
       tags:
       - Profile
-  /create:
+  /api/stream/connect:
+    get:
+      description: connect to a streaming session
+      operationId: streamConnect
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Connect
+      tags:
+      - Stream
+  /api/stream/disconnect:
     post:
-      consumes:
-      - application/json
-      description: create room
-      operationId: createRoom
-      parameters:
-      - description: create room
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/core.CreateRoomReq'
-      produces:
-      - application/json
+      description: disconnect from the streaming session
+      operationId: streamDisconnect
       responses:
         "200":
           description: OK
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.response'
+            $ref: '#/definitions/rest.errorResponse'
       security:
       - ApiKeyAuth: []
-      summary: CreateRoom
+      summary: Disconnect
       tags:
-      - Websocket
-  /delete/{roomId}:
-    get:
-      description: delete room
-      operationId: deleteRoom
-      parameters:
-      - description: room id
-        in: path
-        name: roomId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: DeleteRoom
-      tags:
-      - Websocket
-  /get/messages/{roomId}:
-    get:
-      description: get messages for room
-      operationId: getMessages
-      parameters:
-      - description: room id
-        in: path
-        name: roomId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: GetMessages
-      tags:
-      - Websocket
-  /join/{roomId}:
-    get:
-      description: join room
-      operationId: joinRoom
-      parameters:
-      - description: room id
-        in: path
-        name: roomId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: JoinRoom
-      tags:
-      - Websocket
-  /leave/{roomId}:
-    get:
-      description: leave room
-      operationId: leaveRoom
-      parameters:
-      - description: room id
-        in: path
-        name: roomId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: LeaveRoom
-      tags:
-      - Websocket
-  /wall:
-    get:
-      description: get room wall
-      operationId: roomWall
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/core.WallRoomResponse'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: RoomWall
-      tags:
-      - Websocket
-  /ws/send:
-    post:
-      description: send message
-      operationId: sendMessage
-      parameters:
-      - description: message
-        in: body
-        name: message
-        required: true
-        schema:
-          $ref: '#/definitions/core.SendMessageReq'
-      - description: room id
-        in: path
-        name: roomId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: SendMessage
-      tags:
-      - Websocket
-  /ws/stream/:
-    get:
-      description: stream session
-      operationId: stream
-      responses:
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/rest.response'
-      security:
-      - ApiKeyAuth: []
-      summary: Stream
-      tags:
-      - Websocket
+      - Stream
 securityDefinitions:
   ApiKeyAuth:
     in: header

@@ -1,29 +1,25 @@
 package core
 
-type RoomMessage struct {
-	ID        int    `gorm:"primaryKey;autoIncrement" json:"id"`
+type ChatMessage struct {
+	ID        int    `gorm:"primaryKey;autoIncrement" json:"chat_message_id"`
 	Username  string `json:"username"`
 	UserID    int    `json:"user_id"`
-	RoomID    int    `json:"room_id"`
+	ChatID    int    `json:"chat_id"`
 	Text      string `json:"text"`
 	CreatedAt string `json:"created_at"`
 }
 
 type SendMessageReq struct {
-	RoomId int    `json:"room_id" validate:"required"`
+	ChatID int    `json:"chat_id" validate:"required"`
 	Text   string `json:"text" validate:"required"`
 }
 
-func (s *SendMessageReq) Validate() error {
-	return validate.Struct(s)
-}
-
-func PtrMsgToNonePtrMsg(event *RoomMessage) RoomMessage {
-	return RoomMessage{
+func PtrMsgToNonePtrMsg(event *ChatMessage) ChatMessage {
+	return ChatMessage{
 		ID:        event.ID,
 		Username:  event.Username,
 		UserID:    event.UserID,
-		RoomID:    event.RoomID,
+		ChatID:    event.ChatID,
 		Text:      event.Text,
 		CreatedAt: event.CreatedAt,
 	}
