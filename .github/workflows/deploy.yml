@@ -1,26 +1,28 @@
-name: Deploy to EC2
+name: Deploy
 
 on:
-    push:
-        branches:
-            - master
+  push:
+    branches: [ master ]
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
-
-            - name: Install SSH client
-              run: sudo apt-get install -y openssh-client
-
-            - name: Set up SSH
-              uses: webfactory/ssh-agent@v0.5.3
-              with:
-                ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-            - name: SSH to EC2 instance and deploy
-              run: |
-                ssh -o StrictHostKeyChecking=no ubuntu@ec2-35-181-54-19.eu-west-3.compute.amazonaws.com "cd chat-api/ && sudo make stop && sudo git pull && sudo make build && sudo make run"
+  Deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2 
+      - name: Build & Deploy
+        env:
+            PRIVATE_KEY: ${{secrets.SSH_PRIVATE_KEY}}
+            HOSTNAME: ${{secrets.SSH_HOST}}
+            USER_NAME: ${{secrets.USER_NAME}}
+      
+        run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} '
+              cd /chat-api
+              git pull
+              make build-prod
+              make run
+              exit
+              '
