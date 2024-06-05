@@ -23,7 +23,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} '
               cd chat-api/
               sudo make stop
-              git pull
+              sudo git pull
               sudo make build-prod
               sudo make run
               exit
