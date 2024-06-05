@@ -6,14 +6,14 @@ This is a common messenger that has private and group chats. You can also edit y
 
 ## How to start.
 Build debug. Write in console:
-    ```
-    make build-debug && run
-    ```
+```
+make build-debug && run
+```
 Build prod. Write in console:
-    ```
-    make build-prod && run
-    ```
+```
+make build-prod && run
+```
 Build all. Write in console:
-    ```
-    make build && run
-    ```
+```
+make build && run
+```
