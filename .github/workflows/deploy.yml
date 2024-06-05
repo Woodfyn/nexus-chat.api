@@ -18,11 +18,11 @@ jobs:
             USER_NAME: ${{secrets.USER_NAME}}
       
         run: |
-          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          sudo echo "$PRIVATE_KEY" > private_key && sudo chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} '
-              cd /chat-api
-              git pull
-              make build-prod
-              make run
+              sudo cd /chat-api
+              sudo git pull
+              sudo make build-prod
+              sudo make run
               exit
               '
