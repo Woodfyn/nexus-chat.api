@@ -69,7 +69,6 @@ func (h *Handler) StreamMiddleware(handler http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), "userId", userId)
-
 		handler.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
