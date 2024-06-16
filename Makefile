@@ -18,10 +18,10 @@ build:
 	docker build -f docker/debug/Dockerfile -t chat-api-debug .
 
 run:
-	docker-compose up -d --build
+	docker compose up -d --build
 
 stop:
-	docker-compose down
+	docker compose down
 
 swagger:
 	swag init -g cmd/main.go
