@@ -1,5 +1,4 @@
 .database
-# .github
 main.env
 .env
 app.log

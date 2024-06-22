@@ -8,8 +8,6 @@ import (
 	"strconv"
 
 	"github.com/Woodfyn/chat-api-backend-go/internal/core"
-	"github.com/Woodfyn/chat-api-backend-go/internal/transport/rest/websocket"
-	"github.com/sirupsen/logrus"
 
 	"github.com/gorilla/mux"
 )
@@ -64,24 +62,24 @@ func (h *Handler) initWebSocketRouter(api *mux.Router) {
 func (h *Handler) wsCreateChatGroup(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.CreateChatGroupReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -89,15 +87,15 @@ func (h *Handler) wsCreateChatGroup(w http.ResponseWriter, r *http.Request) {
 
 	if err = h.wsService.CreateChatGroup(r.Context(), req, userId); err != nil {
 		if errors.Is(err, core.ErrDuplicatedKey) {
-			NewErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary CreateChatDefault
@@ -114,24 +112,24 @@ func (h *Handler) wsCreateChatGroup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsCreateChatDefault(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.CreateDefaultChatReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -139,15 +137,15 @@ func (h *Handler) wsCreateChatDefault(w http.ResponseWriter, r *http.Request) {
 
 	if err = h.wsService.CreateChatDefault(r.Context(), req, userId); err != nil {
 		if errors.Is(err, core.ErrDuplicatedKey) {
-			NewErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary JoinChat
@@ -163,24 +161,24 @@ func (h *Handler) wsCreateChatDefault(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsJoinChatGroup(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.JoinChatGroupReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -195,30 +193,27 @@ func (h *Handler) wsJoinChatGroup(w http.ResponseWriter, r *http.Request) {
 	case nil:
 		chatUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
 		if err != nil {
-			NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+			h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		for _, chatUser := range chatUsers {
-			event := core.Event{
+			event := &core.Event{
 				Header:        core.JoinChatEventHeader,
 				Message:       msg,
 				ReceiveUserID: chatUser.UserID,
 			}
 
-			if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
-				NewErrorResponse(w, http.StatusBadRequest, err.Error())
-				return
-			}
+			h.wsHandler.AddEvent(chatUser.UserID, event)
 		}
 
-		NewResponse(w, http.StatusOK, nil)
+		h.newResponse(w, http.StatusOK, nil)
 		return
 	case core.ErrChatGroupFull, core.ErrConnotJoinChat, core.ErrInvalideChatID:
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	default:
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 }
@@ -236,22 +231,22 @@ func (h *Handler) wsJoinChatGroup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsLeaveChatGroup(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	chatId, err := getChatIdFromRequest(r)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ok, err = h.wsService.IsAdmin(r.Context(), userId, chatId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	} else if ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrAdminCannnotLeave.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrAdminCannnotLeave.Error())
 		return
 	}
 
@@ -260,29 +255,27 @@ func (h *Handler) wsLeaveChatGroup(w http.ResponseWriter, r *http.Request) {
 		ChatID: chatId,
 	})
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	chatUsers, err := h.wsService.GetUserOnChat(r.Context(), chatId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	for _, chatUser := range chatUsers {
-		event := core.Event{
+		event := &core.Event{
 			Header:        core.LeaveChatGroupEventHeader,
 			Message:       msg,
 			ReceiveUserID: chatUser.UserID,
 		}
 
-		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
-		}
+		h.wsHandler.AddEvent(chatUser.UserID, event)
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary DeleteChatGroup
@@ -298,31 +291,31 @@ func (h *Handler) wsLeaveChatGroup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsDeleteChatGroup(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	chatId, err := getChatIdFromRequest(r)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ok, err = h.wsService.IsAdmin(r.Context(), userId, chatId)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
 		return
 	} else if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if err := h.wsService.DeleteChat(r.Context(), userId, chatId); err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary DeleteChatDefault
@@ -338,22 +331,22 @@ func (h *Handler) wsDeleteChatGroup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsDeleteChatDefault(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	chatId, err := getChatIdFromRequest(r)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := h.wsService.DeleteChat(r.Context(), userId, chatId); err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary UpdateChatGroupName
@@ -370,24 +363,24 @@ func (h *Handler) wsDeleteChatDefault(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsUpdateChatGroupName(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.UpdateGroupChatNameReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -395,38 +388,36 @@ func (h *Handler) wsUpdateChatGroupName(w http.ResponseWriter, r *http.Request) 
 
 	ok, err = h.wsService.IsAdmin(r.Context(), userId, req.ChatID)
 	if !ok {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	} else if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
 		return
 	}
 
 	msg, err := h.wsService.UpdateChatGroupName(r.Context(), req, userId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	cahtUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	for _, chatUser := range cahtUsers {
-		event := core.Event{
+		event := &core.Event{
 			Header:        core.UpdateChatGroupName,
 			Message:       msg,
 			ReceiveUserID: chatUser.UserID,
 		}
 
-		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
-		}
+		h.wsHandler.AddEvent(chatUser.UserID, event)
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary TransferChatGroupAdmin
@@ -443,24 +434,24 @@ func (h *Handler) wsUpdateChatGroupName(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) wsUpdateChatGroupAdmin(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.UpdateGroupChatAdminReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -468,38 +459,36 @@ func (h *Handler) wsUpdateChatGroupAdmin(w http.ResponseWriter, r *http.Request)
 
 	ok, err = h.wsService.IsAdmin(r.Context(), userId, req.ChatID)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	} else if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrNotAdmin.Error())
 		return
 	}
 
 	msg, err := h.wsService.UpdateChatGroupAdmin(r.Context(), req, userId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	cahtUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	for _, chatUser := range cahtUsers {
-		event := core.Event{
+		event := &core.Event{
 			Header:        core.UpdateChatGroupAdmin,
 			Message:       msg,
 			ReceiveUserID: chatUser.UserID,
 		}
 
-		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
-		}
+		h.wsHandler.AddEvent(chatUser.UserID, event)
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary ChatWall
@@ -514,21 +503,17 @@ func (h *Handler) wsUpdateChatGroupAdmin(w http.ResponseWriter, r *http.Request)
 func (h *Handler) wsWall(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
-
-	h.log.Info("userId: r.Context().Value('userId').(int) ", userId)
 
 	response, err := h.wsService.GetWall(r.Context(), userId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.log.WithFields(logrus.Fields{"level": "transport"}).Info("response: ", response)
-
-	NewResponse(w, http.StatusOK, response)
+	h.newResponse(w, http.StatusOK, response)
 }
 
 // @Summary SendMessage
@@ -545,24 +530,24 @@ func (h *Handler) wsWall(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsSendMessage(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	var req *core.SendMessageReq
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -570,41 +555,39 @@ func (h *Handler) wsSendMessage(w http.ResponseWriter, r *http.Request) {
 
 	chatUsers, err := h.wsService.GetUserOnChat(r.Context(), req.ChatID)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if len(chatUsers) == 0 {
-		NewErrorResponse(w, http.StatusForbidden, core.ErrNoChats.Error())
+		h.newErrorResponse(w, http.StatusForbidden, core.ErrNoChats.Error())
 		return
 	}
 
 	for _, chatUser := range chatUsers {
 		if req.ChatID != chatUser.ChatID {
-			NewErrorResponse(w, http.StatusBadRequest, core.ErrInvalideChatID.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, core.ErrInvalideChatID.Error())
 			return
 		}
 	}
 
 	msg, err := h.wsService.SendMessage(r.Context(), req, userId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	for _, chatUser := range chatUsers {
-		event := core.Event{
+		event := &core.Event{
 			Header:        core.NewMessageEventHeader,
 			Message:       msg,
 			ReceiveUserID: chatUser.UserID,
 		}
 
-		if err := websocket.AddEvent(chatUser.UserID, event); err != nil {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
-		}
+		h.wsHandler.AddEvent(chatUser.UserID, event)
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary GetMessages
@@ -620,19 +603,19 @@ func (h *Handler) wsSendMessage(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) wsGetMessages(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	chatId, err := getChatIdFromRequest(r)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	messages, err := h.wsService.GetMessages(r.Context(), chatId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -642,7 +625,7 @@ func (h *Handler) wsGetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	NewResponse(w, http.StatusOK, messages)
+	h.newResponse(w, http.StatusOK, messages)
 }
 
 func getChatIdFromRequest(r *http.Request) (int, error) {

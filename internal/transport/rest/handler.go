@@ -3,12 +3,18 @@ package rest
 import (
 	"context"
 	"mime/multipart"
+	"net/http"
 
 	"github.com/Woodfyn/chat-api-backend-go/internal/core"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
+
+type Encoder interface {
+	Encrypt(data []byte) ([]byte, error)
+	Decrypt(ciphertext []byte) ([]byte, error)
+}
 
 type Auth interface {
 	Register(ctx context.Context, user *core.AuthRegister) error
@@ -42,10 +48,21 @@ type WebSocket interface {
 	IsAdmin(ctx context.Context, userId int, chatId int) (bool, error)
 }
 
+type WebSocketHandler interface {
+	Stream(w http.ResponseWriter, r *http.Request, userId int)
+	StopStream(userId int)
+	OnlineStream(userId int) bool
+	AddEvent(userId int, event *core.Event)
+}
+
 type Handler struct {
 	authService    Auth
 	profileService Profile
 	wsService      WebSocket
+
+	encoder Encoder
+
+	wsHandler WebSocketHandler
 
 	log *logrus.Logger
 }
@@ -55,6 +72,10 @@ type Deps struct {
 	Profile   Profile
 	WebSocket WebSocket
 
+	Encoder Encoder
+
+	WebSocketHandler WebSocketHandler
+
 	Log *logrus.Logger
 }
 
@@ -63,6 +84,10 @@ func NewHandler(deps Deps) *Handler {
 		authService:    deps.Auth,
 		profileService: deps.Profile,
 		wsService:      deps.WebSocket,
+
+		encoder: deps.Encoder,
+
+		wsHandler: deps.WebSocketHandler,
 
 		log: deps.Log,
 	}
