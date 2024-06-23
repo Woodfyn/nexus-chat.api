@@ -19,8 +19,11 @@ jobs:
             USER_NAME: ${{secrets.USER_NAME}}
       
         run: |
-          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          set -e
+          echo "$PRIVATE_KEY" > private_key
+          chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} '
+              set -e  # Stop the script on the remote server if any command fails
               cd nexus-chat-api/chat-api/
               sudo make stop
               sudo git pull
