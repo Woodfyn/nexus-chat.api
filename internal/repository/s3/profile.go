@@ -25,7 +25,7 @@ func NewProfile(s3 *s3.Client, presign *s3.PresignClient, bucketName string, log
 		s3:        s3,
 		presigner: presign,
 
-		bucketName: bucketName + "/user-avatars/",
+		bucketName: bucketName + "/user-avatars-develop/",
 
 		log: log,
 	}

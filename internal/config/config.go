@@ -25,9 +25,10 @@ type Config struct {
 }
 
 type Server struct {
-	Port      string
-	SwagAddr  string
-	AWSRegion string
+	Port         string
+	SwagAddr     string
+	AWSRegion    string
+	EncodeSecret string
 }
 
 type Database struct {
@@ -55,8 +56,7 @@ type Verify struct {
 }
 
 type JWT struct {
-	Secret string
-
+	Secret          string
 	AccessTokenTTL  time.Duration `mapstructure:"access_ttl"`
 	RefreshTokenTTL time.Duration `mapstructure:"refresh_ttl"`
 }
@@ -90,6 +90,7 @@ func setEnv(cfg *Config) (*Config, error) {
 	cfg.Server.Port = os.Getenv("SERVER_PORT")
 	cfg.Server.SwagAddr = os.Getenv("SERVER_SWAG_ADDR")
 	cfg.Server.AWSRegion = os.Getenv("AWS_DEFAULT_REGION")
+	cfg.Server.EncodeSecret = os.Getenv("SERVER_ENCODE_SECRET")
 
 	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
 

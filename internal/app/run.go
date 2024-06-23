@@ -5,8 +5,6 @@ import (
 
 	"os"
 
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/Woodfyn/chat-api-backend-go/internal/config"
@@ -18,7 +16,10 @@ import (
 	"github.com/Woodfyn/chat-api-backend-go/internal/service"
 	"github.com/Woodfyn/chat-api-backend-go/internal/transport"
 	"github.com/Woodfyn/chat-api-backend-go/internal/transport/rest"
+	"github.com/Woodfyn/chat-api-backend-go/internal/transport/websocket"
+	"github.com/Woodfyn/chat-api-backend-go/pkg/encoder"
 	"github.com/Woodfyn/chat-api-backend-go/pkg/server"
+	"github.com/Woodfyn/chat-api-backend-go/pkg/signaler"
 	"github.com/Woodfyn/chat-api-backend-go/pkg/token"
 	awsCfg "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -71,48 +72,7 @@ func Run() {
 	}
 
 	storageS3 := s3.NewFromConfig(awsCfg)
-
 	presignS3 := s3.NewPresignClient(storageS3)
-
-	// file, err := os.Open("test.jpg")
-	// if err != nil {
-	// 	log.Error("Error when opening file: ", err)
-	// 	panic(err)
-	// }
-
-	// defer file.Close()
-
-	// result, err := presignS3.PresignGetObject(appCtx, &s3.GetObjectInput{
-	// 	Bucket: aws.String("nexus-chat-bucket/avatar-develop/"),
-	// 	Key:    aws.String("qwefmivn230n_1_5"),
-	// })
-	// if err != nil {
-	// 	log.Error("Error when uploading file: ", err)
-	// 	panic(err)
-	// }
-
-	// resp, err := http.Get("https://s3.eu-west-3.amazonaws.com/nexus-chat-bucket/avatars-develop/qwefmivn230n_1_5.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA5FTY65RMU6UYMEHE%2F20240515%2Feu-west-3%2Fs3%2Faws4_request&X-Amz-Date=20240515T122504Z&X-Amz-Expires=60&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=86bbdb33ab04d1fa647475eb5add82572abd849a840bb948432adc350431c86b")
-	// if err != nil {
-	// 	log.Println("Error sending HTTP request:", err)
-	// 	return
-	// }
-	// defer resp.Body.Close()
-
-	// // Create a new file to save the photo
-	// outFile, err := os.Create("downloaded_photo.jpg")
-	// if err != nil {
-	// 	log.Println("Error creating file:", err)
-	// 	return
-	// }
-
-	// defer outFile.Close()
-
-	// // Copy the response body to the file
-	// _, err = io.Copy(outFile, resp.Body)
-	// if err != nil {
-	// 	log.Println("Error copying response body to file:", err)
-	// 	return
-	// }
 
 	// init db
 	db, err := gorm.Open(postgres.Open(cfg.Database.Dsn), &gorm.Config{})
@@ -166,14 +126,19 @@ func Run() {
 		WebSocket: service.NewWebSocket(psql.NewWebSocket(db, log),
 			log),
 
+		Encoder: encoder.New(cfg.Server.EncodeSecret),
+
+		WebSocketHandler: websocket.NewWebSocketHandler(encoder.New(cfg.Server.EncodeSecret)),
+
 		Log: log,
 	})
 
+	// init api
 	api := transport.NewApi(handler, cfg.Server.SwagAddr)
 
+	// start server
 	srv := new(server.Server)
 
-	// start server
 	go func() {
 		if err := srv.Run(cfg.Server.Port, api.InitApi()); err != nil {
 			log.Error("Error when running server: ", err)
@@ -184,12 +149,10 @@ func Run() {
 	log.WithFields(logrus.Fields{"server started:": time.Now().Format(time.DateTime)}).Info()
 
 	// graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
-
-	<-quit
+	signaler.Wait()
 
 	log.WithFields(logrus.Fields{"server stoped:": time.Now().Format(time.DateTime)}).Info()
 
+	// stop server
 	srv.Shutdown(appCtx)
 }

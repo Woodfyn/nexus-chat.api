@@ -36,28 +36,28 @@ func (h *Handler) authRegister(w http.ResponseWriter, r *http.Request) {
 	var auth *core.AuthRegister
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &auth); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := auth.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	defer r.Body.Close()
 
 	if err := h.authService.Register(r.Context(), auth); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary Login
@@ -74,17 +74,17 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 	var auth *core.AuthLogin
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := json.Unmarshal(reqBytes, &auth); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := auth.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -92,15 +92,15 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 
 	if err = h.authService.Login(r.Context(), auth); err != nil {
 		if errors.Is(err, core.ErrUserNotFound) {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary Verify
@@ -116,18 +116,18 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) authVerify(w http.ResponseWriter, r *http.Request) {
 	code, err := getCodeFromRequest(r)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tokens, err := h.authService.Verify(r.Context(), code)
 	if err != nil {
 		if errors.Is(err, core.ErrCodeNotFound) {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -139,7 +139,9 @@ func (h *Handler) authVerify(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 	})
 
-	NewTokenResponse(w, http.StatusOK, tokens[1])
+	h.newResponse(w, http.StatusOK, tokenResponse{
+		Token: tokens[1],
+	})
 }
 
 // @Summary Refresh
@@ -154,24 +156,24 @@ func (h *Handler) authVerify(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("Authorization")
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	refreshToken, err := getTokenFromCookie(cookie.Value)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tokens, err := h.authService.Refresh(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, core.ErrRefreshTokenNotFound) {
-			NewErrorResponse(w, http.StatusUnauthorized, err.Error())
+			h.newErrorResponse(w, http.StatusUnauthorized, err.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -183,7 +185,9 @@ func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 	})
 
-	NewTokenResponse(w, http.StatusOK, tokens[1])
+	h.newResponse(w, http.StatusOK, tokenResponse{
+		Token: tokens[1],
+	})
 }
 
 func getCodeFromRequest(r *http.Request) (string, error) {

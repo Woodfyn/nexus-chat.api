@@ -42,17 +42,17 @@ func (h *Handler) initProfileRouter(api *mux.Router) {
 func (h *Handler) profileGet(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	profile, err := h.profileService.GetProfile(r.Context(), userId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, profile)
+	h.newResponse(w, http.StatusOK, profile)
 }
 
 // @Summary UpdateProfile
@@ -69,24 +69,24 @@ func (h *Handler) profileGet(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) profileUpdate(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	reqBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req *core.UpdateUserReq
 	if err := json.Unmarshal(reqBytes, &req); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -98,15 +98,15 @@ func (h *Handler) profileUpdate(w http.ResponseWriter, r *http.Request) {
 		Username: req.Username,
 	}); err != nil {
 		if errors.Is(err, core.ErrDuplicatedKey) {
-			NewErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, core.ErrThisCredIsAlready.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary GetAvatars
@@ -121,17 +121,17 @@ func (h *Handler) profileUpdate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) profileAvatarGetAll(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	response, err := h.profileService.GetAvatars(r.Context(), userId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, response)
+	h.newResponse(w, http.StatusOK, response)
 }
 
 // @Summary UploadAvatar
@@ -147,24 +147,24 @@ func (h *Handler) profileAvatarGetAll(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) profileAvatarUpload(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	file, _, err := r.FormFile("avatar")
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	defer file.Close()
 
 	if err := h.profileService.UploadAvatar(r.Context(), file, userId); err != nil {
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 // @Summary DeleteAvatar
@@ -180,33 +180,33 @@ func (h *Handler) profileAvatarUpload(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) profileAvatarDelete(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int)
 	if !ok {
-		NewErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, core.ErrEmptyUserID.Error())
 		return
 	}
 
 	avatarId, err := getAvatarIdFromRequest(r)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	avatarIdInt, err := strconv.Atoi(avatarId)
 	if err != nil {
-		NewErrorResponse(w, http.StatusBadRequest, err.Error())
+		h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := h.profileService.DeleteAvatar(r.Context(), userId, avatarIdInt); err != nil {
 		if errors.Is(err, core.ErrAvatarNotFound) {
-			NewErrorResponse(w, http.StatusBadRequest, err.Error())
+			h.newErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		NewErrorResponse(w, http.StatusInternalServerError, err.Error())
+		h.newErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	NewResponse(w, http.StatusOK, nil)
+	h.newResponse(w, http.StatusOK, nil)
 }
 
 func getAvatarIdFromRequest(r *http.Request) (string, error) {

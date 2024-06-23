@@ -1,12 +1,17 @@
 package rest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 )
 
-func NewResponse(w http.ResponseWriter, status int, input any) error {
-	w.Header().Add("Content-Type", "application/json")
+type tokenResponse struct {
+	Token string `json:"token"`
+}
+
+func (h *Handler) newResponse(w http.ResponseWriter, status int, input any) error {
+	w.Header().Add("Content-Type", "text/plain")
 	w.WriteHeader(status)
 
 	if input == nil {
@@ -18,7 +23,12 @@ func NewResponse(w http.ResponseWriter, status int, input any) error {
 		return err
 	}
 
-	_, err = w.Write(respose)
+	encryptResp, err := h.encoder.Encrypt(respose)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte(base64.StdEncoding.EncodeToString(encryptResp)))
 	if err != nil {
 		return err
 	}
@@ -30,7 +40,7 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-func NewErrorResponse(w http.ResponseWriter, status int, msg string) error {
+func (h *Handler) newErrorResponse(w http.ResponseWriter, status int, msg string) error {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 
@@ -39,29 +49,6 @@ func NewErrorResponse(w http.ResponseWriter, status int, msg string) error {
 	}
 
 	respose, err := json.Marshal(msgErr)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(respose)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type tokenResponse struct {
-	Token string `json:"token"`
-}
-
-func NewTokenResponse(w http.ResponseWriter, status int, token string) error {
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	msg := tokenResponse{Token: token}
-
-	respose, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
