@@ -16,7 +16,7 @@ import (
 	"github.com/Woodfyn/chat-api-backend-go/internal/service"
 	"github.com/Woodfyn/chat-api-backend-go/internal/transport"
 	"github.com/Woodfyn/chat-api-backend-go/internal/transport/rest"
-	"github.com/Woodfyn/chat-api-backend-go/internal/transport/websocket"
+	"github.com/Woodfyn/chat-api-backend-go/internal/transport/rest/websocket"
 	"github.com/Woodfyn/chat-api-backend-go/pkg/encoder"
 	"github.com/Woodfyn/chat-api-backend-go/pkg/server"
 	"github.com/Woodfyn/chat-api-backend-go/pkg/signaler"
