@@ -10,25 +10,36 @@ type tokenResponse struct {
 	Token string `json:"token"`
 }
 
+type dataResponse struct {
+	Data string `json:"data"`
+}
+
 func (h *Handler) newResponse(w http.ResponseWriter, status int, input any) error {
-	w.Header().Add("Content-Type", "text/plain")
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 
 	if input == nil {
 		return nil
 	}
 
-	respose, err := json.Marshal(input)
+	inputJSON, err := json.Marshal(input)
 	if err != nil {
 		return err
 	}
 
-	encryptResp, err := h.encoder.Encrypt(respose)
+	encryptResp, err := h.encoder.Encrypt(inputJSON)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write([]byte(base64.StdEncoding.EncodeToString(encryptResp)))
+	response, err := json.Marshal(dataResponse{
+		Data: base64.StdEncoding.EncodeToString(encryptResp),
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(response)
 	if err != nil {
 		return err
 	}
