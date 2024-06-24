@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 )
@@ -10,13 +9,9 @@ type tokenResponse struct {
 	Token string `json:"token"`
 }
 
-type dataResponse struct {
-	Data string `json:"data"`
-}
-
 func (h *Handler) newResponse(w http.ResponseWriter, status int, input any) error {
-	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
+	w.Header().Add("Content-Type", "application/json")
 
 	if input == nil {
 		return nil
@@ -32,14 +27,7 @@ func (h *Handler) newResponse(w http.ResponseWriter, status int, input any) erro
 		return err
 	}
 
-	response, err := json.Marshal(dataResponse{
-		Data: base64.StdEncoding.EncodeToString(encryptResp),
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(response)
+	_, err = w.Write(encryptResp)
 	if err != nil {
 		return err
 	}
