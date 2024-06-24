@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 )
@@ -27,7 +28,7 @@ func (h *Handler) newResponse(w http.ResponseWriter, status int, input any) erro
 		return err
 	}
 
-	_, err = w.Write(encryptResp)
+	_, err = w.Write([]byte(base64.StdEncoding.EncodeToString(encryptResp)))
 	if err != nil {
 		return err
 	}
