@@ -24,7 +24,7 @@ jobs:
           chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} '
               set -e  # Stop the script on the remote server if any command fails
-              cd nexus-chat-api/chat-api/
+              cd chat-api/
               sudo make stop
               sudo git pull
               sudo make build-prod
