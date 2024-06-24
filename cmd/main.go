@@ -5,7 +5,7 @@ import "github.com/Woodfyn/chat-api-backend-go/internal/app"
 // @title Social Network Backend
 // @description API Server
 
-// @host 13.38.249.72:8080
+// @host 51.44.7.199:8080
 // @BasePath /api
 
 // @securityDefinitions.apikey ApiKeyAuth

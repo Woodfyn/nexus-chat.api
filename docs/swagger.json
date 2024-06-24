@@ -5,7 +5,7 @@
         "title": "Social Network Backend",
         "contact": {}
     },
-    "host": "13.38.249.72:8080",
+    "host": "51.44.7.199:8080",
     "basePath": "/api",
     "paths": {
         "/api/auth/login": {
