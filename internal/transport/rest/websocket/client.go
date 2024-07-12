@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type WSClient struct {
+type Client struct {
 	conn *websocket.Conn
 
 	userId int
@@ -16,15 +16,15 @@ type WSClient struct {
 	exitCh  chan struct{}
 }
 
-func (wsh *WSHandler) initWSClient(w http.ResponseWriter, r *http.Request, userId int) (*WSClient, error) {
+func (h *Handler) initClient(w http.ResponseWriter, r *http.Request, userId int) (*Client, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	wscFirst, ok := wsh.ConnMap[userId]
+	wscFirst, ok := h.ConnMap[userId]
 	if !ok {
-		wscSecond := &WSClient{
+		wscSecond := &Client{
 			conn: conn,
 
 			userId: userId,
@@ -33,7 +33,7 @@ func (wsh *WSHandler) initWSClient(w http.ResponseWriter, r *http.Request, userI
 			exitCh:  make(chan struct{}),
 		}
 
-		wsh.ConnMap[userId] = wscSecond
+		h.ConnMap[userId] = wscSecond
 
 		return wscSecond, nil
 	}
@@ -41,15 +41,15 @@ func (wsh *WSHandler) initWSClient(w http.ResponseWriter, r *http.Request, userI
 	return wscFirst, nil
 }
 
-func (wsc *WSClient) closeConn() {
-	close(wsc.eventCh)
-	close(wsc.exitCh)
-	wsc.conn.Close()
+func (c *Client) closeConn() {
+	close(c.eventCh)
+	close(c.exitCh)
+	c.conn.Close()
 }
 
-func (wsc *WSClient) writeMessage(messageType int, data []byte) {
-	if err := wsc.conn.WriteMessage(messageType, data); err != nil {
-		wsc.closeConn()
+func (c *Client) writeMessage(messageType int, data []byte) {
+	if err := c.conn.WriteMessage(messageType, data); err != nil {
+		c.closeConn()
 		panic(err)
 	}
 }

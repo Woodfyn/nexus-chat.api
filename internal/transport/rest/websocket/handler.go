@@ -28,22 +28,22 @@ type Encoder interface {
 	Decrypt(ciphertext []byte) ([]byte, error)
 }
 
-type WSHandler struct {
+type Handler struct {
 	encoder Encoder
 
-	ConnMap map[int]*WSClient
+	ConnMap map[int]*Client
 }
 
-func NewWebSocketHandler(encoder Encoder) *WSHandler {
-	return &WSHandler{
+func NewWebSocketHandler(encoder Encoder) *Handler {
+	return &Handler{
 		encoder: encoder,
 
-		ConnMap: make(map[int]*WSClient),
+		ConnMap: make(map[int]*Client),
 	}
 }
 
-func (wsh *WSHandler) Stream(w http.ResponseWriter, r *http.Request, userId int) {
-	wsc, err := wsh.initWSClient(w, r, userId)
+func (h *Handler) Stream(w http.ResponseWriter, r *http.Request, userId int) {
+	wsc, err := h.initClient(w, r, userId)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +67,7 @@ func (wsh *WSHandler) Stream(w http.ResponseWriter, r *http.Request, userId int)
 					panic(err)
 				}
 
-				encrypt, err := wsh.encoder.Encrypt(eventRespBytes)
+				encrypt, err := h.encoder.Encrypt(eventRespBytes)
 				if err != nil {
 					wsc.closeConn()
 					panic(err)
@@ -81,8 +81,8 @@ func (wsh *WSHandler) Stream(w http.ResponseWriter, r *http.Request, userId int)
 	}
 }
 
-func (wsh *WSHandler) StopStream(userId int) {
-	wsc, ok := wsh.ConnMap[userId]
+func (h *Handler) StopStream(userId int) {
+	wsc, ok := h.ConnMap[userId]
 	if !ok {
 		panic(core.ErrStreamNotAvailable)
 	}
@@ -91,16 +91,16 @@ func (wsh *WSHandler) StopStream(userId int) {
 
 	wsc.closeConn()
 
-	delete(wsh.ConnMap, userId)
+	delete(h.ConnMap, userId)
 }
 
-func (wsh *WSHandler) OnlineStream(userId int) bool {
+func (wsh *Handler) OnlineStream(userId int) bool {
 	_, ok := wsh.ConnMap[userId]
 
 	return ok
 }
 
-func (wsh *WSHandler) AddEvent(userId int, event *core.Event) {
+func (wsh *Handler) AddEvent(userId int, event *core.Event) {
 	wsc, ok := wsh.ConnMap[userId]
 	if !ok {
 		panic(core.ErrStreamNotAvailable)
